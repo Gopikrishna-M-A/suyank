@@ -59,9 +59,21 @@ export const memeRouter = {
   byId: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      return await ctx.db.query.Meme.findFirst({
+      const meme = await ctx.db.query.Meme.findFirst({
         where: eq(Meme.id, input.id),
       });
+
+      if (!meme) return null;
+
+      const voteCount = await ctx.db
+        .select({ count: count() })
+        .from(Vote)
+        .where(and(eq(Vote.memeId, input.id), eq(Vote.type, "up")));
+
+      return {
+        ...meme,
+        upvotes: Number(voteCount[0]?.count) || 0,
+      };
     }),
 
   delete: protectedProcedure
@@ -115,56 +127,79 @@ export const memeRouter = {
     }),
 
   vote: protectedProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const find = await ctx.db.query.Vote.findFirst({
-        where: and(
-          eq(Vote.memeId, input.id),
-          eq(Vote.userId, ctx.session.user.id),
-        ),
-      });
-
-      return find || null;
-    }),
-
-  upVoteCount: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const find = await ctx.db.query.Vote.findMany({
-        where: and(eq(Vote.memeId, input.id), eq(Vote.type, "up")),
-      });
-
-      return find?.length || null;
-    }),
-
-  updateVote: protectedProcedure
-    .input(z.object({ id: z.string(), type: z.string() }))
+    .input(z.object({ id: z.string(), voteType: z.enum(["up", "down"]) }))
     .mutation(async ({ ctx, input }) => {
-      const find = await ctx.db.query.Vote.findFirst({
+      const existingVote = await ctx.db.query.Vote.findFirst({
         where: and(
           eq(Vote.memeId, input.id),
           eq(Vote.userId, ctx.session.user.id),
         ),
       });
 
-      if (find) {
-        await ctx.db
-          .delete(Vote)
-          .where(
-            and(
-              eq(Vote.memeId, input.id),
-              eq(Vote.userId, ctx.session.user.id),
-            ),
-          );
+      if (existingVote) {
+        if (existingVote.type === input.voteType) {
+          // Remove vote if it's the same type
+          await ctx.db.delete(Vote).where(eq(Vote.id, existingVote.id));
+        } else {
+          // Update vote type if it's different
+          await ctx.db
+            .update(Vote)
+            .set({ type: input.voteType })
+            .where(eq(Vote.id, existingVote.id));
+        }
+      } else {
+        // Create new vote
+        await ctx.db.insert(Vote).values({
+          type: input.voteType,
+          memeId: input.id,
+          userId: ctx.session.user.id,
+        });
       }
 
-      const newVote = await ctx.db.insert(Vote).values({
-        type: input.type,
-        memeId: input.id,
-        userId: ctx.session.user.id,
+      // Fetch updated upvote count
+      const upvoteCount = await ctx.db
+        .select({ count: count() })
+        .from(Vote)
+        .where(and(eq(Vote.memeId, input.id), eq(Vote.type, "up")));
+
+      // Fetch downvote count (for future use)
+      const downvoteCount = await ctx.db
+        .select({ count: count() })
+        .from(Vote)
+        .where(and(eq(Vote.memeId, input.id), eq(Vote.type, "down")));
+
+      return {
+        upvotes: Number(upvoteCount[0]?.count) || 0,
+        downvotes: Number(downvoteCount[0]?.count) || 0,
+      };
+    }),
+
+  getVoteCounts: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const upvoteCount = await ctx.db
+        .select({ count: count() })
+        .from(Vote)
+        .where(and(eq(Vote.memeId, input.id), eq(Vote.type, "up")));
+
+      const downvoteCount = await ctx.db
+        .select({ count: count() })
+        .from(Vote)
+        .where(and(eq(Vote.memeId, input.id), eq(Vote.type, "down")));
+
+      const userVote = await ctx.db.query.Vote.findFirst({
+        where: and(
+          eq(Vote.memeId, input.id),
+          eq(Vote.userId, ctx.session.user.id),
+        ),
+        columns: { type: true },
       });
 
-      return newVote;
+      return {
+        upvotes: Number(upvoteCount[0]?.count) || 0,
+        downvotes: Number(downvoteCount[0]?.count) || 0,
+        userVote: userVote?.type || null,
+      };
     }),
 
   allFavorites: protectedProcedure.query(async ({ ctx }) => {

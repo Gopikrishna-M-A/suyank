@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -79,19 +79,81 @@ export function MemeCard(props: { meme: any }) {
   const pathname = usePathname();
   const router = useRouter();
 
+  console.log("meme", props.meme);
+
   const { downloadImage, loading: downloadingImage } = useImageDownloader();
   const { copyImageToClipboard, loading: copyingImage } = useImageClipboard();
 
-  // const { data: vote, refetch } = api.meme.vote.useQuery({
-  //   id: props?.meme?.id,
-  // });
+  // Mutation hooks
+  const [upvotes, setUpvotes] = useState(0);
+  const [userVote, setUserVote] = useState<"up" | "down" | null>(null);
 
-  // const { data: upvoteLength, refetch: refetchUpvoteLength } =
-  //   api.meme.upVoteCount.useQuery({
-  //     id: props?.meme?.id,
-  //   });
+  const { data: voteCounts, refetch: refetchVoteCounts } =
+    api.meme.getVoteCounts.useQuery(
+      { id: props.meme?.id ?? "" },
+      {
+        enabled: !!props.meme?.id,
+      },
+    );
 
-  // const updateVote = api.meme.updateVote.useMutation();
+  console.log("voteCounts", voteCounts?.userVote);
+
+  useEffect(() => {
+    if (voteCounts) {
+      setUpvotes(voteCounts.upvotes);
+      setUserVote(voteCounts.userVote);
+    }
+  }, [voteCounts]);
+
+  const voteMutation = api.meme.vote.useMutation({
+    onSuccess: async (data) => {
+      await refetchVoteCounts();
+    },
+    onError: () => {
+      setUpvotes((prev) => {
+        if (userVote === "up") {
+          return prev - 1;
+        }
+      });
+    },
+  });
+
+  const handleUpVote = async () => {
+    const voteType = "up";
+    if (voteMutation.isLoading || !props.meme?.id) return;
+
+    if (userVote == voteType) {
+      setUpvotes((prev) => prev - 1);
+      setUserVote(null);
+    } else {
+      setUpvotes((prev) => prev + 1);
+      setUserVote(voteType);
+    }
+
+    try {
+      await voteMutation.mutateAsync({ id: props.meme.id, voteType });
+      //  setUserVote(userVote === voteType ? null : voteType);
+    } catch (error) {
+      console.error("Error voting:", error);
+    }
+  };
+
+  const handleDownVote = async () => {
+    const voteType = "down";
+
+    if (userVote == "up") {
+      setUpvotes((prev) => prev - 1);
+      setUserVote(voteType);
+    }
+
+    if (voteMutation.isLoading || !props.meme?.id) return;
+    try {
+      await voteMutation.mutateAsync({ id: props.meme.id, voteType });
+      // setUserVote(userVote === voteType ? null : voteType);
+    } catch (error) {
+      console.error("Error voting:", error);
+    }
+  };
 
   return (
     <div
@@ -114,47 +176,20 @@ export function MemeCard(props: { meme: any }) {
           <div className="flex items-center gap-2 p-2">
             <div
               className="flex cursor-pointer items-center gap-2 rounded-full bg-white p-2"
-              // onClick={(e) => {
-              //   e.stopPropagation();
-
-              //   updateVote.mutate(
-              //     {
-              //       id: props?.meme?.id,
-              //       type: "up",
-              //     },
-              //     {
-              //       onSuccess: () => {
-              //         refetch();
-              //         refetchUpvoteLength();
-              //       },
-              //     },
-              //   );
-              // }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUpVote();
+              }}
             >
-              {/* {upvoteLength && (
-                <p className="text-[14px] leading-[1]">{upvoteLength}</p>
-              )} */}
-
               <ArrowUpIcon className="text-gray-700" />
+              <span>{upvotes}</span>
             </div>
 
             <div
               className="flex cursor-pointer items-center rounded-full bg-white p-2"
               onClick={(e) => {
                 e.stopPropagation();
-
-                // updateVote.mutate(
-                //   {
-                //     id: props?.meme?.id,
-                //     type: "down",
-                //   },
-                //   {
-                //     onSuccess: () => {
-                //       refetch();
-                //       refetchUpvoteLength();
-                //     },
-                //   },
-                // );
+                handleDownVote();
               }}
             >
               <ArrowDownIcon className="text-gray-700" />
