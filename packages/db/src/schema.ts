@@ -21,31 +21,6 @@ export const Tag = pgTable("tag", {
   }).$onUpdateFn(() => sql`now()`),
 });
 
-export const Vote = pgTable("vote", {
-  id: uuid("id").notNull().primaryKey().defaultRandom(),
-  type: varchar("type", { length: 256 }).notNull(),
-  memeId: uuid("memeId")
-    .notNull()
-    .references(() => Meme.id, { onDelete: "cascade" }),
-  userId: uuid("userId")
-    .notNull()
-    .references(() => User.id, { onDelete: "cascade" }),
-});
-
-export const VoteRelationsToMeme = relations(Vote, ({ one }) => ({
-  meme: one(Meme, {
-    fields: [Vote.memeId],
-    references: [Meme.id],
-  }),
-}));
-
-export const VoteRelationsToUser = relations(Vote, ({ one }) => ({
-  user: one(User, {
-    fields: [Vote.userId],
-    references: [User.id],
-  }),
-}));
-
 export const Favorite = pgTable("favorite", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
   memeId: uuid("memeId")
@@ -202,3 +177,40 @@ export const Session = pgTable("session", {
 export const SessionRelations = relations(Session, ({ one }) => ({
   user: one(User, { fields: [Session.userId], references: [User.id] }),
 }));
+
+// new vote schema
+
+export const Vote = pgTable("vote", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  memeId: uuid("memeId")
+    .notNull()
+    .references(() => Meme.id, { onDelete: "cascade" }),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => User.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 10 }).notNull(), 
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const VoteRelationsToMeme = relations(Vote, ({ one }) => ({
+  meme: one(Meme, {
+    fields: [Vote.memeId],
+    references: [Meme.id],
+  }),
+}));
+
+export const VoteRelationsToUser = relations(Vote, ({ one }) => ({
+  user: one(User, {
+    fields: [Vote.userId],
+    references: [User.id],
+  }),
+}));
+
+export const CreateVoteSchema = createInsertSchema(Vote, {
+  memeId: z.string().max(256),
+  userId: z.string().max(256),
+  type: z.enum(["upvote", "downvote"]),
+}).omit({
+  id: true,
+  createdAt: true,
+});

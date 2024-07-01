@@ -21,6 +21,7 @@ const config = {
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
   images: {
+
     remotePatterns: [
       {
         protocol: "https",
@@ -35,6 +36,11 @@ const config = {
       {
         protocol: "http",
         hostname: "res.cloudinary.com",
+        port: "",
+      },
+      {
+        protocol: "https",
+        hostname: "pvjqqrdiajdz3lvk.public.blob.vercel-storage.com",
         port: "",
       },
     ],
