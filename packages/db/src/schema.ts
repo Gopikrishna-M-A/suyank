@@ -181,9 +181,8 @@ export const SessionRelations = relations(Session, ({ one }) => ({
   user: one(User, { fields: [Session.userId], references: [User.id] }),
 }));
 
-// new vote schema
-
-export const Vote = pgTable("vote", {
+// Vote table for memes
+export const VoteForMeme = pgTable("vote_meme", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
   type: varchar("type", { length: 256 }).notNull(),
   memeId: uuid("memeId")
@@ -194,16 +193,36 @@ export const Vote = pgTable("vote", {
     .references(() => User.id, { onDelete: "cascade" }),
 });
 
-export const VoteRelationsToMeme = relations(Vote, ({ one }) => ({
+export const VoteRelationsToMeme = relations(VoteForMeme, ({ one }) => ({
   meme: one(Meme, {
-    fields: [Vote.memeId],
+    fields: [VoteForMeme.memeId],
     references: [Meme.id],
+  }),
+  user: one(User, {
+    fields: [VoteForMeme.userId],
+    references: [User.id],
   }),
 }));
 
-export const VoteRelationsToUser = relations(Vote, ({ one }) => ({
+// Vote table for posts
+export const VoteForPost = pgTable("vote_post", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  type: varchar("type", { length: 256 }).notNull(),
+  postId: uuid("postId")
+    .notNull()
+    .references(() => Post.id, { onDelete: "cascade" }),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => User.id, { onDelete: "cascade" }),
+});
+
+export const VoteRelationsToPost = relations(VoteForPost, ({ one }) => ({
+  post: one(Post, {
+    fields: [VoteForPost.postId],
+    references: [Post.id],
+  }),
   user: one(User, {
-    fields: [Vote.userId],
+    fields: [VoteForPost.userId],
     references: [User.id],
   }),
 }));

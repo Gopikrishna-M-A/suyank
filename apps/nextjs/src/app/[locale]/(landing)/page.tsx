@@ -27,7 +27,7 @@ export default async function HomePage({
     <main className="container py-4">
       <Tabs defaultValue="trending_memes" className="mb-4">
         <TabsList className="mb-4 w-full">
-        <TabsTrigger value="trending_memes" className="w-[200px]">
+          <TabsTrigger value="trending_memes" className="w-[200px]">
             {t("trending_memes")}
           </TabsTrigger>
 

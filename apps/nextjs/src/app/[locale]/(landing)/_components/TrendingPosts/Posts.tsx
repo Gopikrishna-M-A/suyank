@@ -19,6 +19,7 @@ import useImageClipboard from "~/hooks/useImageClipboard";
 import useImageDownloader from "~/hooks/useImageDownloader";
 import { useI18n } from "~/locales/client";
 import { api } from "~/trpc/react";
+import { PostCard } from "./PostCard";
 
 export function Posts(props: {
   trendingPosts: Promise<RouterOutputs["post"]["trending"]>;
@@ -75,19 +76,5 @@ export function Posts(props: {
         })}
       </div>
     </InfiniteScroll>
-  );
-}
-
-export function PostCard(props: { post: any }) {
-  return (
-    <div className="flex flex-col gap-4 border-0 border-b-[1px] border-gray-400 pb-8">
-      <div className="font-['pretendard-bold'] text-3xl">
-        {props?.post?.title}
-      </div>
-
-      <div className="text-md font-['pretendard-bold']">
-        {props?.post?.content}
-      </div>
-    </div>
   );
 }

@@ -20,7 +20,7 @@ import {
   Favorite,
   Meme,
   User,
-  Vote,
+  VoteForMeme,
 } from "@acme/db/schema";
 
 import { protectedProcedure, publicProcedure } from "../trpc";
@@ -57,18 +57,18 @@ export const memeRouter = {
           categoryId: Meme.categoryId,
           categoryName: Category.name,
           upvoteCount:
-            sql<number>`CAST(COUNT(DISTINCT CASE WHEN ${Vote.type} = 'up' THEN ${Vote.id} END) AS INTEGER)`.as(
+            sql<number>`CAST(COUNT(DISTINCT CASE WHEN ${VoteForMeme.type} = 'up' THEN ${VoteForMeme.id} END) AS INTEGER)`.as(
               "upvote_count",
             ),
           userVoteType: sql<
             string | null
-          >`MAX(CASE WHEN ${Vote.userId} = ${userId} THEN ${Vote.type} ELSE NULL END)`.as(
+          >`MAX(CASE WHEN ${VoteForMeme.userId} = ${userId} THEN ${VoteForMeme.type} ELSE NULL END)`.as(
             "user_vote_type",
           ),
         })
         .from(Meme)
         .leftJoin(Category, eq(Meme.categoryId, Category.id))
-        .leftJoin(Vote, eq(Meme.id, Vote.memeId))
+        .leftJoin(VoteForMeme, eq(Meme.id, VoteForMeme.memeId))
         .groupBy(Meme.id, Category.id)
         .orderBy(desc(sql`upvote_count`))
         .limit(limit)
@@ -173,21 +173,26 @@ export const memeRouter = {
       const userId = ctx.session.user.id;
 
       return await ctx.db.transaction(async (trx) => {
-        const existingVote = await trx.query.Vote.findFirst({
-          where: and(eq(Vote.memeId, memeId), eq(Vote.userId, userId)),
+        const existingVote = await trx.query.VoteForMeme.findFirst({
+          where: and(
+            eq(VoteForMeme.memeId, memeId),
+            eq(VoteForMeme.userId, userId),
+          ),
         });
 
         if (existingVote) {
           if (type === "remove" || existingVote.type === type) {
-            await trx.delete(Vote).where(eq(Vote.id, existingVote.id));
+            await trx
+              .delete(VoteForMeme)
+              .where(eq(VoteForMeme.id, existingVote.id));
           } else {
             await trx
-              .update(Vote)
+              .update(VoteForMeme)
               .set({ type })
-              .where(eq(Vote.id, existingVote.id));
+              .where(eq(VoteForMeme.id, existingVote.id));
           }
         } else if (type !== "remove") {
-          await trx.insert(Vote).values({
+          await trx.insert(VoteForMeme).values({
             type,
             memeId,
             userId,
@@ -197,9 +202,9 @@ export const memeRouter = {
         const result = await trx.execute(sql`
           SELECT 
             COUNT(*) AS "upvoteCount"
-          FROM ${Vote}
-          WHERE ${Vote.memeId} = ${memeId}
-          AND ${Vote.type} = 'up'
+          FROM ${VoteForMeme}
+          WHERE ${VoteForMeme.memeId} = ${memeId}
+          AND ${VoteForMeme.type} = 'up'
         `);
 
         const upvoteCount = result?.rows[0]?.upvoteCount || 0;
