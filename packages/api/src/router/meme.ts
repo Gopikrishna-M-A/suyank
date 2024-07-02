@@ -1,8 +1,27 @@
+//meme.ts
+
 import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod";
 
-import { and, count, eq, inArray, like, or } from "@acme/db";
-import { CreateMemeSchema, Favorite, Meme, User, Vote } from "@acme/db/schema";
+import {
+  and,
+  arrayContains,
+  count,
+  desc,
+  eq,
+  inArray,
+  like,
+  or,
+  sql,
+} from "@acme/db";
+import {
+  Category,
+  CreateMemeSchema,
+  Favorite,
+  Meme,
+  User,
+  Vote,
+} from "@acme/db/schema";
 
 import { protectedProcedure, publicProcedure } from "../trpc";
 
@@ -20,25 +39,58 @@ export const memeRouter = {
 
   trending: publicProcedure
     .input(
-      z.object({ limit: z.number().optional(), offset: z.number().optional() }),
+      z.object({
+        limit: z.number().optional(),
+        offset: z.number().optional(),
+      }),
     )
     .query(async ({ input, ctx }) => {
       const limit = input.limit ?? 10;
       const offset = input.offset ?? 0;
+      const userId = ctx.session?.user?.id;
 
-      const memes = await ctx.db.query.Meme.findMany({
-        limit,
-        offset,
-        with: {
-          category: true,
+      const memesWithVotes = await ctx.db
+        .select({
+          id: Meme.id,
+          name: Meme.name,
+          image: Meme.image,
+          categoryId: Meme.categoryId,
+          categoryName: Category.name,
+          upvoteCount:
+            sql<number>`CAST(COUNT(DISTINCT CASE WHEN ${Vote.type} = 'up' THEN ${Vote.id} END) AS INTEGER)`.as(
+              "upvote_count",
+            ),
+          userVoteType: sql<
+            string | null
+          >`MAX(CASE WHEN ${Vote.userId} = ${userId} THEN ${Vote.type} ELSE NULL END)`.as(
+            "user_vote_type",
+          ),
+        })
+        .from(Meme)
+        .leftJoin(Category, eq(Meme.categoryId, Category.id))
+        .leftJoin(Vote, eq(Meme.id, Vote.memeId))
+        .groupBy(Meme.id, Category.id)
+        .orderBy(desc(sql`upvote_count`))
+        .limit(limit)
+        .offset(offset);
+
+      const [totalCount] = await ctx.db.select({ count: count() }).from(Meme);
+
+      const memes = memesWithVotes.map((meme) => ({
+        id: meme.id,
+        name: meme.name,
+        image: meme.image,
+        category: {
+          id: meme.categoryId,
+          name: meme.categoryName,
         },
-      });
-
-      const totalMemes = await ctx.db.select({ count: count() }).from(Meme); // Assuming you have a count method
+        upvoteCount: meme.upvoteCount,
+        userVoteType: meme.userVoteType,
+      }));
 
       return {
         memes,
-        total: totalMemes?.[0]?.count,
+        total: totalCount?.count,
         limit,
         offset,
       };
@@ -59,21 +111,9 @@ export const memeRouter = {
   byId: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const meme = await ctx.db.query.Meme.findFirst({
+      return await ctx.db.query.Meme.findFirst({
         where: eq(Meme.id, input.id),
       });
-
-      if (!meme) return null;
-
-      const voteCount = await ctx.db
-        .select({ count: count() })
-        .from(Vote)
-        .where(and(eq(Vote.memeId, input.id), eq(Vote.type, "up")));
-
-      return {
-        ...meme,
-        upvotes: Number(voteCount[0]?.count) || 0,
-      };
     }),
 
   delete: protectedProcedure
@@ -127,79 +167,48 @@ export const memeRouter = {
     }),
 
   vote: protectedProcedure
-    .input(z.object({ id: z.string(), voteType: z.enum(["up", "down"]) }))
+    .input(z.object({ id: z.string(), type: z.enum(["up", "down", "remove"]) }))
     .mutation(async ({ ctx, input }) => {
-      const existingVote = await ctx.db.query.Vote.findFirst({
-        where: and(
-          eq(Vote.memeId, input.id),
-          eq(Vote.userId, ctx.session.user.id),
-        ),
-      });
+      const { id: memeId, type } = input;
+      const userId = ctx.session.user.id;
 
-      if (existingVote) {
-        if (existingVote.type === input.voteType) {
-          // Remove vote if it's the same type
-          await ctx.db.delete(Vote).where(eq(Vote.id, existingVote.id));
-        } else {
-          // Update vote type if it's different
-          await ctx.db
-            .update(Vote)
-            .set({ type: input.voteType })
-            .where(eq(Vote.id, existingVote.id));
-        }
-      } else {
-        // Create new vote
-        await ctx.db.insert(Vote).values({
-          type: input.voteType,
-          memeId: input.id,
-          userId: ctx.session.user.id,
+      return await ctx.db.transaction(async (trx) => {
+        const existingVote = await trx.query.Vote.findFirst({
+          where: and(eq(Vote.memeId, memeId), eq(Vote.userId, userId)),
         });
-      }
 
-      // Fetch updated upvote count
-      const upvoteCount = await ctx.db
-        .select({ count: count() })
-        .from(Vote)
-        .where(and(eq(Vote.memeId, input.id), eq(Vote.type, "up")));
+        if (existingVote) {
+          if (type === "remove" || existingVote.type === type) {
+            await trx.delete(Vote).where(eq(Vote.id, existingVote.id));
+          } else {
+            await trx
+              .update(Vote)
+              .set({ type })
+              .where(eq(Vote.id, existingVote.id));
+          }
+        } else if (type !== "remove") {
+          await trx.insert(Vote).values({
+            type,
+            memeId,
+            userId,
+          });
+        }
 
-      // Fetch downvote count (for future use)
-      const downvoteCount = await ctx.db
-        .select({ count: count() })
-        .from(Vote)
-        .where(and(eq(Vote.memeId, input.id), eq(Vote.type, "down")));
+        const result = await trx.execute(sql`
+          SELECT 
+            COUNT(*) AS "upvoteCount"
+          FROM ${Vote}
+          WHERE ${Vote.memeId} = ${memeId}
+          AND ${Vote.type} = 'up'
+        `);
 
-      return {
-        upvotes: Number(upvoteCount[0]?.count) || 0,
-        downvotes: Number(downvoteCount[0]?.count) || 0,
-      };
-    }),
+        const upvoteCount = result?.rows[0]?.upvoteCount || 0;
 
-  getVoteCounts: protectedProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const upvoteCount = await ctx.db
-        .select({ count: count() })
-        .from(Vote)
-        .where(and(eq(Vote.memeId, input.id), eq(Vote.type, "up")));
-
-      const downvoteCount = await ctx.db
-        .select({ count: count() })
-        .from(Vote)
-        .where(and(eq(Vote.memeId, input.id), eq(Vote.type, "down")));
-
-      const userVote = await ctx.db.query.Vote.findFirst({
-        where: and(
-          eq(Vote.memeId, input.id),
-          eq(Vote.userId, ctx.session.user.id),
-        ),
-        columns: { type: true },
+        return {
+          upvoteCount,
+          userVoteType: type === "remove" ? null : type,
+        };
       });
-
-      return {
-        upvotes: Number(upvoteCount[0]?.count) || 0,
-        downvotes: Number(downvoteCount[0]?.count) || 0,
-        userVote: userVote?.type || null,
-      };
     }),
 
   allFavorites: protectedProcedure.query(async ({ ctx }) => {
