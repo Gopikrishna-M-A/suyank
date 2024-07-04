@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
+  CaretDownIcon,
+  CaretUpIcon,
   CopyIcon,
   DownloadIcon,
   Share2Icon,
 } from "@radix-ui/react-icons";
+import { useSession } from "next-auth/react";
 
 import SocialShare from "~/components/SocialShare";
 import useImageClipboard from "~/hooks/useImageClipboard";
 import useImageDownloader from "~/hooks/useImageDownloader";
+import { createQueryString } from "~/lib/createQueryString";
 import { api } from "~/trpc/react";
 
 interface Meme {
@@ -29,10 +31,11 @@ interface MemeCardProps {
 }
 
 export function MemeCard({ meme }: MemeCardProps) {
-  console.log("meme", meme);
-
+  const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
+
+  const session = useSession();
 
   const { downloadImage, loading: downloadingImage } = useImageDownloader();
   const { copyImageToClipboard, loading: copyingImage } = useImageClipboard();
@@ -111,26 +114,47 @@ export function MemeCard({ meme }: MemeCardProps) {
 
       <div className="absolute top-0 z-10 flex h-full w-full flex-col justify-end hover:backdrop-brightness-50">
         <div className="flex items-end justify-between gap-2">
-          <div className="flex items-center gap-2 p-2">
+          <div className="flex items-center gap-2 bg-background px-2 py-[0.5px]">
             <div
-              className="flex cursor-pointer items-center gap-2 rounded-full bg-white p-2"
+              className="flex cursor-pointer items-center"
               onClick={(e) => {
                 e.stopPropagation();
-                handleVote("up");
+
+                if (session?.status === "authenticated") {
+                  handleVote("up");
+                } else {
+                  router.push(
+                    pathname +
+                      "?" +
+                      createQueryString("authModal", true, searchParams),
+                  );
+                }
               }}
             >
-              <ArrowUpIcon className="text-gray-700" />
-              <span>{upvoteCount}</span>
+              <CaretUpIcon className="h-[30px] w-[30px]" />
+
+              <span className="font-['pretendard-bold'] text-xs">
+                {upvoteCount}
+              </span>
             </div>
 
             <div
-              className="flex cursor-pointer items-center rounded-full bg-white p-2"
+              className="flex cursor-pointer items-center"
               onClick={(e) => {
                 e.stopPropagation();
-                handleVote("down");
+
+                if (session?.status === "authenticated") {
+                  handleVote("down");
+                } else {
+                  router.push(
+                    pathname +
+                      "?" +
+                      createQueryString("authModal", true, searchParams),
+                  );
+                }
               }}
             >
-              <ArrowDownIcon className="text-gray-700" />
+              <CaretDownIcon className="h-[30px] w-[30px]" />
             </div>
           </div>
 

@@ -15,7 +15,9 @@ export default function TrendingPostsSection() {
 
   return (
     <Suspense
-      fallback={<div className="flex w-full flex-col gap-4">Loading...</div>}
+      fallback={
+        <div className="flex w-full max-w-2xl flex-col gap-4">Loading...</div>
+      }
     >
       <div className="flex w-full flex-col items-center gap-[20px]">
         <CreatePostButton />

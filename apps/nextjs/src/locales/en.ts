@@ -31,4 +31,10 @@ export default {
   memes: "Memes",
 
   add_to_favorite: "Add to favorite",
+
+  meme: "Meme",
+  post: "Post",
+  clear_all: "Clear all",
+  sign_in_email: "Sign in with email",
+  or: "Or",
 } as const;

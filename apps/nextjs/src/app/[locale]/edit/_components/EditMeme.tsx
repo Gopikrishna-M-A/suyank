@@ -90,7 +90,7 @@ const ImageEditor: React.FC = () => {
   const handleDownload = () => {
     const canvas = canvasRef.current;
     if (canvas) {
-      const link = document.createElement("a");
+      const link = document?.createElement("a");
       link.download = "image.png";
       link.href = canvas.toDataURL("image/png");
       link.click();

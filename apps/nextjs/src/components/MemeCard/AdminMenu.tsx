@@ -9,6 +9,7 @@ import {
 import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
+import AddTag from "./AddTag";
 
 export default function AdminMenu({ meme }: { meme: any }) {
   const deleteMeme = api.meme.delete.useMutation();
@@ -67,6 +68,8 @@ export default function AdminMenu({ meme }: { meme: any }) {
           >
             Set as thumbnail
           </DropdownMenuItem>
+
+          <AddTag memeId={meme?.id} />
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>

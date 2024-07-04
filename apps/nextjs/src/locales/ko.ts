@@ -1,11 +1,11 @@
 // locales/en.ts
 export default {
-  your_meme: "내밈",
+  your_meme: "유어밈",
   discover_memes: "밈 발견하기",
   trending_memes: "인기 밈",
   my_favorites: "내 즐겨 찾기",
   upload_meme: "밈 업로드",
-  sign_in: "로그인",
+  sign_in: "로그인 / 회원가입",
   sign_out: "로그아웃",
   sign_in_with_google: "Google로 로그인",
   search_placeholder: "카테고리 또는 밈 선택",
@@ -31,5 +31,11 @@ export default {
   categories: "카테고리",
   memes: "밈",
 
-  add_to_favorite: "Add to favorite",
+  add_to_favorite: "즐겨찾는 밈에 추가",
+
+  meme: "밈",
+  post: "잼얘",
+  clear_all: "전체보기",
+  sign_in_email: "이메일로 가입하기",
+  or: "또는",
 } as const;

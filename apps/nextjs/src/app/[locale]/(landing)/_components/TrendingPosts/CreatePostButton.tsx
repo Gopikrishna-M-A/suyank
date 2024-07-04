@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-import { Button } from "@acme/ui/Button";
+import { Button } from "@acme/ui/button";
 
 export default function CreatePostButton() {
   const router = useRouter();

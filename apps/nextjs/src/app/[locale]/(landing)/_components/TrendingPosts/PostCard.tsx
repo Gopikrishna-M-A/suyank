@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowDownIcon, ArrowUpIcon } from "@radix-ui/react-icons";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { CaretDownIcon, CaretUpIcon } from "@radix-ui/react-icons";
+import { useSession } from "next-auth/react";
 
+import { createQueryString } from "~/lib/createQueryString";
 import { api } from "~/trpc/react";
 
 interface Post {
@@ -18,6 +21,12 @@ interface PostCardProps {
 }
 
 export function PostCard({ post }: PostCardProps) {
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const session = useSession();
+
   const [upvoteCount, setUpvoteCount] = useState<number>(post.upvoteCount);
   const [userVote, setUserVote] = useState<"up" | "down" | null>(
     post.userVoteType,
@@ -79,26 +88,47 @@ export function PostCard({ post }: PostCardProps) {
       <div className="font-['pretendard-bold'] text-3xl">{post?.title}</div>
 
       <div className="text-md font-['pretendard-bold']">{post?.content}</div>
-      <div className="flex items-center gap-2 p-2">
+      <div className="flex items-center gap-3">
         <div
-          className="flex cursor-pointer items-center gap-2 rounded-full bg-white p-2"
+          className="flex cursor-pointer items-center"
           onClick={(e) => {
             e.stopPropagation();
-            handleVote("up");
+
+            if (session?.status === "authenticated") {
+              handleVote("up");
+            } else {
+              router.push(
+                pathname +
+                  "?" +
+                  createQueryString("authModal", true, searchParams),
+              );
+            }
           }}
         >
-          <ArrowUpIcon className="text-gray-700" />
-          <span>{upvoteCount}</span>
+          <CaretUpIcon className="h-[30px] w-[30px]" />
+
+          <span className="font-['pretendard-bold'] text-xs">
+            {upvoteCount}
+          </span>
         </div>
 
         <div
-          className="flex cursor-pointer items-center rounded-full bg-white p-2"
+          className="flex cursor-pointer items-center"
           onClick={(e) => {
             e.stopPropagation();
-            handleVote("down");
+
+            if (session?.status === "authenticated") {
+              handleVote("down");
+            } else {
+              router.push(
+                pathname +
+                  "?" +
+                  createQueryString("authModal", true, searchParams),
+              );
+            }
           }}
         >
-          <ArrowDownIcon className="text-gray-700" />
+          <CaretDownIcon className="h-[30px] w-[30px]" />
         </div>
       </div>
     </div>

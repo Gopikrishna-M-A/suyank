@@ -59,8 +59,6 @@ export function Posts(props: {
     );
   };
 
-  console.log("## trendingPosts-", posts);
-
   return (
     <InfiniteScroll
       dataLength={posts.length}

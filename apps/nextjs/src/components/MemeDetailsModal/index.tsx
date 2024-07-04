@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -17,6 +17,7 @@ import { toast } from "@acme/ui/toast";
 import SocialShare from "~/components/SocialShare";
 import useImageClipboard from "~/hooks/useImageClipboard";
 import useImageDownloader from "~/hooks/useImageDownloader";
+import { createQueryString } from "~/lib/createQueryString";
 import { useI18n } from "~/locales/client";
 import { api } from "~/trpc/react";
 
@@ -69,7 +70,12 @@ export default function MemeDetailsModal() {
   return memeId ? (
     <Dialog
       open={Boolean(memeId)}
-      onOpenChange={(open) => !open && router.push(pathname)}
+      onOpenChange={(open) =>
+        !open &&
+        router.push(
+          pathname + "?" + createQueryString("memeId", undefined, searchParams),
+        )
+      }
     >
       <DialogContent className="max-w-[1200px]">
         <DialogHeader>

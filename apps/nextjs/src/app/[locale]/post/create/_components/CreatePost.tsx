@@ -13,6 +13,7 @@ import {
   useForm,
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
+import { Textarea } from "@acme/ui/textarea";
 import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
@@ -32,7 +33,7 @@ export default function CreatePostForm() {
   const createPost = api.post.create.useMutation({
     onSuccess: async () => {
       form.reset();
-    //   await utils.post.invalidate();
+      //   await utils.post.invalidate();
 
       router.push("/?type=post");
     },
@@ -71,7 +72,7 @@ export default function CreatePostForm() {
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Input {...field} placeholder="Content" />
+                <Textarea rows={8} {...field} placeholder="Content" />
               </FormControl>
               <FormMessage />
             </FormItem>

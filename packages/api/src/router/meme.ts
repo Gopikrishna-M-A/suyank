@@ -19,6 +19,8 @@ import {
   CreateMemeSchema,
   Favorite,
   Meme,
+  Tag,
+  TagForMeme,
   User,
   VoteForMeme,
 } from "@acme/db/schema";
@@ -42,33 +44,56 @@ export const memeRouter = {
       z.object({
         limit: z.number().optional(),
         offset: z.number().optional(),
+        tags: z.array(z.string()).optional(),
       }),
     )
     .query(async ({ input, ctx }) => {
       const limit = input.limit ?? 10;
       const offset = input.offset ?? 0;
-      const userId = ctx.session?.user?.id;
+      const userId = ctx?.session?.user?.id;
+
+      const whereCondition =
+        input.tags && input.tags.length > 0
+          ? inArray(Tag.id, input.tags)
+          : undefined;
 
       const memesWithVotes = await ctx.db
-        .select({
-          id: Meme.id,
-          name: Meme.name,
-          image: Meme.image,
-          categoryId: Meme.categoryId,
-          categoryName: Category.name,
-          upvoteCount:
-            sql<number>`CAST(COUNT(DISTINCT CASE WHEN ${VoteForMeme.type} = 'up' THEN ${VoteForMeme.id} END) AS INTEGER)`.as(
-              "upvote_count",
-            ),
-          userVoteType: sql<
-            string | null
-          >`MAX(CASE WHEN ${VoteForMeme.userId} = ${userId} THEN ${VoteForMeme.type} ELSE NULL END)`.as(
-            "user_vote_type",
-          ),
-        })
+        .select(
+          userId
+            ? {
+                id: Meme.id,
+                name: Meme.name,
+                image: Meme.image,
+                categoryId: Meme.categoryId,
+                categoryName: Category.name,
+                upvoteCount:
+                  sql<number>`CAST(COUNT(DISTINCT CASE WHEN ${VoteForMeme.type} = 'up' THEN ${VoteForMeme.id} END) AS INTEGER)`.as(
+                    "upvote_count",
+                  ),
+                userVoteType: sql<
+                  string | null
+                >`MAX(CASE WHEN ${VoteForMeme.userId} = ${userId} THEN ${VoteForMeme.type} ELSE NULL END)`.as(
+                  "user_vote_type",
+                ),
+              }
+            : {
+                id: Meme.id,
+                name: Meme.name,
+                image: Meme.image,
+                categoryId: Meme.categoryId,
+                categoryName: Category.name,
+                upvoteCount:
+                  sql<number>`CAST(COUNT(DISTINCT CASE WHEN ${VoteForMeme.type} = 'up' THEN ${VoteForMeme.id} END) AS INTEGER)`.as(
+                    "upvote_count",
+                  ),
+              },
+        )
         .from(Meme)
         .leftJoin(Category, eq(Meme.categoryId, Category.id))
         .leftJoin(VoteForMeme, eq(Meme.id, VoteForMeme.memeId))
+        .leftJoin(TagForMeme, eq(Meme.id, TagForMeme.memeId))
+        .leftJoin(Tag, eq(TagForMeme.tagId, Tag.id))
+        .where(whereCondition)
         .groupBy(Meme.id, Category.id)
         .orderBy(desc(sql`upvote_count`))
         .limit(limit)

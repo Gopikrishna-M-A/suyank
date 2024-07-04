@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Image from "next/image";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@acme/ui/tabs";
 
@@ -36,6 +37,21 @@ export default async function HomePage({
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="trending_memes">
+          <div className="relative flex justify-between gap-2">
+            <div>
+              <MenuOption type={searchParams?.type as string | null} />
+            </div>
+            {searchParams?.type === "post" ? (
+              <TrendingPosts />
+            ) : (
+              <TrendingMemes />
+            )}
+
+            <div></div>
+          </div>
+        </TabsContent>
+
         <TabsContent value="discover_memes">
           <Suspense
             fallback={
@@ -46,21 +62,6 @@ export default async function HomePage({
           >
             <CategoryList categories={categories} />
           </Suspense>
-        </TabsContent>
-
-        <TabsContent value="trending_memes">
-          <div className="relative flex justify-between gap-2">
-            <div>
-              <MenuOption />
-            </div>
-            {searchParams?.type === "post" ? (
-              <TrendingPosts />
-            ) : (
-              <TrendingMemes />
-            )}
-
-            <div></div>
-          </div>
         </TabsContent>
       </Tabs>
     </main>

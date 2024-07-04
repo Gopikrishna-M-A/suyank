@@ -226,3 +226,27 @@ export const VoteRelationsToPost = relations(VoteForPost, ({ one }) => ({
     references: [User.id],
   }),
 }));
+
+
+
+// Tag table for meme
+export const TagForMeme = pgTable("tag_meme", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  memeId: uuid("memeId")
+    .notNull()
+    .references(() => Meme.id, { onDelete: "cascade" }),
+  tagId: uuid("tagId")
+    .notNull()
+    .references(() => Tag.id, { onDelete: "cascade" }),
+});
+
+export const TagRelationsToMeme = relations(TagForMeme, ({ one }) => ({
+  meme: one(Meme, {
+    fields: [TagForMeme.memeId],
+    references: [Meme.id],
+  }),
+  tag: one(Tag, {
+    fields: [TagForMeme.tagId],
+    references: [Tag.id],
+  }),
+}));
