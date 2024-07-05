@@ -30,6 +30,10 @@ export function AuthShowcase() {
     }
   }, [session?.status]);
 
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
   if (!session?.data?.user) {
     return (
       <AuthModal
