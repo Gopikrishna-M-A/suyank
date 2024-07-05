@@ -21,6 +21,7 @@ export const authConfig = {
   }),
   providers: [Google],
   callbacks: {
+    
     session: (opts) => {
       if (!("user" in opts)) throw "unreachable with session strategy";
 
@@ -31,6 +32,11 @@ export const authConfig = {
           id: opts.user.id,
         },
       };
+    },
+    redirect: async ({ url, baseUrl }) => {
+      if (url.startsWith("/")) return `${baseUrl}${url}`
+      else if (new URL(url).origin === baseUrl) return url
+      return baseUrl
     },
   },
 } satisfies NextAuthConfig;
